@@ -49,6 +49,14 @@ Riavviare potrebbe risolvere""",
 
 Reboot may be helpful"""
 }
+messages['VIRTUAL_expl'] = {
+    'it_IT': """Stai eseguendo Freepto su una macchina virtuale.
+
+Un host fisico non fidato potrebbe essere un rischio per la tua privacy"""
+    'en_US': """Freepto seems running on a virtual machine.
+
+This could be a risk for your privacy"""
+}
 
 
 def get_message(key, lang=None):
