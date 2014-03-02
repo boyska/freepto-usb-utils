@@ -6,9 +6,10 @@ Homepage: http://www.freepto.mx/
 Package: freepto-usb-utils
 Version: 0.1
 Maintainer: boyska <piuttosto@logorroici.org>
-Depends: python-gtk2, python-parted, python-pyudev, python-vte
+Depends: python-gtk2, python-parted, python-pyudev, python-vte, virt-what, udisks
 Files: freepto-live-tray /usr/bin/
   check-persistence /usr/bin/
+  check-virt /usr/bin
   usb-disk-utility /usr/bin/
   90-livetray /etc/X11/Xsession.d/
   livehelper.desktop /usr/share/applications/

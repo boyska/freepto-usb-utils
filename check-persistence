@@ -103,7 +103,7 @@ has_avail_persistence() {
 	  echo $persistence
 	  return ${RET_PERSISTENCE_FOUND}
 	fi
-	if ! $cryptsetup isLuks "$persistence"; then
+	if udisks --show-info "$persistence" | fgrep 'type:' | grep 'crypto_LUKS'; then
 	  verbose "$persistence is not an encrypted partition"
 	  return ${RET_NOPERSISTENCE}
 	fi

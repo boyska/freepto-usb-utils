@@ -49,6 +49,14 @@ Riavviare potrebbe risolvere""",
 
 Reboot may be helpful"""
 }
+messages['VIRTUAL_expl'] = {
+    'it_IT': """Stai eseguendo Freepto su una macchina virtuale.
+
+Un host fisico non fidato potrebbe essere un rischio per la tua privacy"""
+    'en_US': """Freepto seems running on a virtual machine.
+
+This could be a risk for your privacy"""
+}
 
 
 def get_message(key, lang=None):
@@ -87,8 +95,6 @@ def get_persistence_status():
         if ret == 10:
             return False
         raise Exception('Error checking persistence status')
-    #esco subito con ABSENT per semplificarmi la vita durante i test
-    #return 'ABSENT'
     if sub_check('is-mounted'):
         return 'MOUNTED'
     if sub_check('has-avail-persistence'):
@@ -96,6 +102,26 @@ def get_persistence_status():
     return 'ABSENT'
 ### Check-persistence }}}
 
+### Check virtualization {{{
+def check_virtualization():
+    '''
+    check if freepto is running on a virtualized system.
+    return values:
+        VIRTUAL
+        NOTVIRTUAL
+    '''
+    def sub_check(subcmd):
+        virt = call(['check-virtual', subcmd])
+        if ret == 0:
+            return True
+        if ret == 10:
+            return False
+        raise Exception('Error checking virtualization status')
+    if sub_check('is_virtual'):
+        return 'VIRTUAL'
+    return 'NOTVIRTUAL'
+
+# Check virtaulization }}}
 
 class LiveIcon:
     '''
@@ -166,24 +192,39 @@ class LiveIcon:
             self.dialog.destroy()
             self.dialog = None
             if response == gtk.RESPONSE_YES:
-                if get_root_device() is not None:
-                    self.make_persistence()
+                vmsg = get_message("%s_expl" % self.status) % values
+                if check_virtualization() == "VIRTUAL":
+                    self.dialog = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
+                                                    type=gtk.MESSAGE_QUESTION,
+                                                    buttons=gtk.BUTTONS_YES_NO)
+                    self.dialog.set_markup(vmsg)
+                    self.dialog.set_title("Virtualization Checking")
+                    virtresponse = self.dialog.run()
+                    self.dialog.destroy()
+                    self.dialog = None
                 else:
-                    err = gtk.MessageDialog(None, type=gtk.MESSAGE_ERROR,
-                                            buttons=gtk.BUTTONS_OK)
-                    err.set_markup("Can't detect disk, aborting")
-                    err.set_title("Error: disk not detected")
-                    err.run()
-                    err.destroy()
-        else:
-            self.dialog = gtk.MessageDialog(None,
-                                            flags=gtk.DIALOG_MODAL,
-                                            buttons=gtk.BUTTONS_OK)
-            self.dialog.set_markup(msg)
-            self.dialog.set_title("Persistence helper")
-            self.dialog.run()
-            self.dialog.destroy()
-            self.dialog = None
+                    ''' if not virtualization detected,
+                    set virtrespose variable to yes '''
+                    virtresponse = gtk.RESPONSE_YES
+                if virtresponse == gtk.RESPONSE_YES:
+                    if get_root_device() is not None:
+                        self.make_persistence()
+                    else:
+                        err = gtk.MessageDialog(None, type=gtk.MESSAGE_ERROR,
+                                                buttons=gtk.BUTTONS_OK)
+                        err.set_markup("Can't detect disk, aborting")
+                        err.set_title("Error: disk not detected")
+                        err.run()
+                        err.destroy()
+            else:
+                self.dialog = gtk.MessageDialog(None,
+                                                flags=gtk.DIALOG_MODAL,
+                                                buttons=gtk.BUTTONS_OK)
+                self.dialog.set_markup(msg)
+                self.dialog.set_title("Persistence helper")
+                self.dialog.run()
+                self.dialog.destroy()
+                self.dialog = None
 
     def make_persistence(self):
         '''apre un terminale ed esegue lo script indicato in command'''

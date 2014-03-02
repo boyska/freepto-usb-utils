@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+VERBOSE=0
+IS_VIRTUAL=10
+IS_NOT_VIRTUAL=0
+
+VIRTWHAT="/usr/sbin/virt-what"
+
+[ -x "$VIRTWHAT" ] || exit 0
+
+usage() {
+	# the -n and the trailing backslash are to avoid useless newlines
+	echo -en "\
+Usage: $0 [options] COMMAND
+Options can be:
+\t-v\tverbose (without this, there is barely any output)
+
+COMMAND can be one of:
+\tis_virtual\tcheck if freepto run on a virtual machine
+
+Exit codes are:
+0\tis not a virtual machine
+10\tvirtual machine
+1\tfor generic errors
+2\tfor syntax errors
+"
+}
+verbose() {
+  if [ "$VERBOSE" -eq 1 ]; then
+    echo $* >&2
+  fi
+}
+
+is_virtual() {
+  status=`bash ${VIRTWHAT}`
+  if [ -z "$status" ]; then
+    verbose "Freepto is not running on a virtual machine"
+    return ${IS_NOT_VIRTUAL}
+  fi
+  echo "$status"
+  return ${IS_VIRTUAL}
+}
+
+
+while getopts v opt; do
+  case $opt in
+    v)
+      VERBOSE=1
+      ;;
+    \?)
+      exit ${RET_SYNTAX_ERROR}
+      ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+cmd=$1
+shift
+case "$cmd" in
+	is_virtual)
+		if [ $# != 0 ]; then
+			usage
+			exit 1
+		fi
+		is_virtual
+		exit $?
+		;;
+
+	*)
+		echo "Command '$cmd' not found" >&2
+		usage
+		exit 2
+		;;
+esac
+
+# vim: set noet:
