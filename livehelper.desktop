@@ -4,5 +4,5 @@ Type=Application
 Name=Freepto Live Helper
 Comment=Give information about persistence status of Freepto
 Categories=Paranoid
-# Icon=anonymous.ico
+Icon=livehelper.ico
 Exec=/usr/bin/freepto-live-tray
