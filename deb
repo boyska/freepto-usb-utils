@@ -14,6 +14,7 @@ Files: freepto-live-tray /usr/bin/
   90-livetray /etc/X11/Xsession.d/
   livehelper.desktop /usr/share/applications/
   livehelper.ico /usr/share/pixmaps/
+  makepersistence /usr/bin/
 
 Description: Graphical interface to create a new freepto
  This package contains various small tools to get persistence status, probe
