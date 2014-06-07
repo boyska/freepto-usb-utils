@@ -4,7 +4,7 @@ Priority: optional
 Homepage: http://www.freepto.mx/
 
 Package: freepto-usb-utils
-Version: 0.1
+Version: 0.2
 Maintainer: boyska <piuttosto@logorroici.org>
 Depends: python-gtk2, python-parted, python-pyudev, python-vte, virt-what, udisks
 Files: freepto-live-tray /usr/bin/
