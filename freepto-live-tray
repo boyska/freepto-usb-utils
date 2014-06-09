@@ -23,7 +23,7 @@ except:
 
 
 ### Messages {{{
-messages = {'ABSENT_expl': {}, 'MOUNTED_expl': {}, 'LIVE_expl': {},
+messages = {'ABSENT_expl': {}, 'MOUNTED_expl': {}, 'LIVE_expl': {}, 'VIRTUAL_expl': {},
             'misc_info': {}}
 messages['misc_info'] = {
     'it_IT': """Il tuo disco e' <tt>%(disk)s</tt>""",
@@ -52,10 +52,10 @@ Reboot may be helpful"""
 messages['VIRTUAL_expl'] = {
     'it_IT': """Stai eseguendo Freepto su una macchina virtuale.
 
-Un host fisico non fidato potrebbe essere un rischio per la tua privacy"""
+Un host fisico non fidato potrebbe essere un rischio per la tua privacy. Vuoi continuare?""",
     'en_US': """Freepto seems running on a virtual machine.
 
-This could be a risk for your privacy"""
+This could be a risk for your privacy. Do you want to continue?"""
 }
 
 
@@ -111,17 +111,17 @@ def check_virtualization():
         NOTVIRTUAL
     '''
     def sub_check(subcmd):
-        virt = call(['check-virtual', subcmd])
-        if ret == 0:
-            return True
-        if ret == 10:
+        virt = call(['check-virt', subcmd])
+        if virt == 0:
             return False
+        if virt == 10:
+            return True
         raise Exception('Error checking virtualization status')
     if sub_check('is_virtual'):
         return 'VIRTUAL'
     return 'NOTVIRTUAL'
 
-# Check virtaulization }}}
+# Check virtualization }}}
 
 class LiveIcon:
     '''
@@ -192,12 +192,12 @@ class LiveIcon:
             self.dialog.destroy()
             self.dialog = None
             if response == gtk.RESPONSE_YES:
-                vmsg = get_message("%s_expl" % self.status) % values
+                msg = get_message("VIRTUAL_expl")
                 if check_virtualization() == "VIRTUAL":
                     self.dialog = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
                                                     type=gtk.MESSAGE_QUESTION,
                                                     buttons=gtk.BUTTONS_YES_NO)
-                    self.dialog.set_markup(vmsg)
+                    self.dialog.set_markup(msg)
                     self.dialog.set_title("Virtualization Checking")
                     virtresponse = self.dialog.run()
                     self.dialog.destroy()
@@ -216,15 +216,6 @@ class LiveIcon:
                         err.set_title("Error: disk not detected")
                         err.run()
                         err.destroy()
-            else:
-                self.dialog = gtk.MessageDialog(None,
-                                                flags=gtk.DIALOG_MODAL,
-                                                buttons=gtk.BUTTONS_OK)
-                self.dialog.set_markup(msg)
-                self.dialog.set_title("Persistence helper")
-                self.dialog.run()
-                self.dialog.destroy()
-                self.dialog = None
 
     def make_persistence(self):
         '''apre un terminale ed esegue lo script indicato in command'''
