@@ -9,21 +9,7 @@ import gtk
 import gettext
 gettext.textdomain('freepto-usb-utils')
 _ = gettext.gettext
-
-try:
-    import vte
-except:
-    error = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
-                              type=gtk.MESSAGE_ERROR,
-                              buttons=gtk.BUTTONS_OK,
-                              message_format=
-                              _('You need to install python bindings for libvte')
-                              )
-    error.run()
-    import sys
-    sys.exit(1)
-
-
+import vte
 
 title = "Persistence helper"
 
@@ -367,19 +353,22 @@ class LiveIcon:
             return
 
         if self.status == 'ABSENT':
-            if self.is_virtualized():
-                window = AbsentWindow(self)
+            if self.warn_virtualization():
+                AbsentWindow(self)
         elif self.status == 'LIVE':
-            window = LiveWindow(self)
+            LiveWindow()
         else:
-            window = MountedWindow(self)
+            MountedWindow()
 
-    def is_virtualized(self):
-        if self.check_virtualization() == "VIRTUAL":
+    def warn_virtualization(self):
+        if self.is_virtualized():
             self.dialog = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
                                             type=gtk.MESSAGE_QUESTION,
                                             buttons=gtk.BUTTONS_YES_NO)
-            self.dialog.set_markup(_("Freepto seems running on a virtual machine. This could be a risk for your privacy. Do you want to continue?"))
+            self.dialog.set_markup(_(
+                "Freepto seems running on a virtual machine. " +
+                "This could be a risk for your privacy. " +
+                "Do you want to continue?"))
             self.dialog.set_title(_("Virtualization Checking"))
             virtresponse = self.dialog.run()
             self.dialog.destroy()
@@ -393,7 +382,7 @@ class LiveIcon:
         else:
             return False
 
-    def check_virtualization(self):
+    def is_virtualized(self):
         '''
         check if freepto is running on a virtualized system.
         return values:
@@ -401,15 +390,16 @@ class LiveIcon:
             NOTVIRTUAL
         '''
         def sub_check(subcmd):
-            virt = call(['check-virt', subcmd])
+            cmd = ['check-virt', subcmd]
+            if os.getuid() != 0:
+                cmd.insert(0, 'fakeroot')
+            virt = call(cmd)
             if virt == 0:
                 return False
             if virt == 10:
                 return True
             raise Exception('Error checking virtualization status')
-        if sub_check('is_virtual'):
-            return 'VIRTUAL'
-        return 'NOTVIRTUAL'
+        return sub_check('is_virtual')
 
     def refresh_persistence_status(self):
         '''return one of MOUNTED, LIVE, ABSENT'''
@@ -429,8 +419,6 @@ class LiveIcon:
                 self.status = 'ABSENT'
         except Exception:
             logging.exception("Status unknown")
-
-
 
 
 if __name__ == '__main__':
