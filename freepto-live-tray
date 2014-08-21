@@ -24,50 +24,176 @@ except:
     sys.exit(1)
 
 
-### Check-persistence {{{
-def get_root_device():
-    try:
-        return check_output(["check-persistence", "get-root-device"]).strip()
-    except CalledProcessError:
-        return None
-
-
-def get_persistence_status():
-    '''return one of MOUNTED, LIVE, ABSENT'''
-    def sub_check(subcmd):
-        ret = call(['check-persistence', subcmd])
-        if ret == 0:
-            return True
-        if ret == 10:
-            return False
-        raise Exception('Error checking persistence status')
-    if sub_check('is-mounted'):
-        return 'MOUNTED'
-    if sub_check('has-avail-persistence'):
-        return 'LIVE'
-    return 'ABSENT'
-### Check-persistence }}}
-
 ### Check virtualization {{{
-def check_virtualization():
-    '''
-    check if freepto is running on a virtualized system.
-    return values:
-        VIRTUAL
-        NOTVIRTUAL
-    '''
-    def sub_check(subcmd):
-        virt = call(['check-virt', subcmd])
-        if virt == 0:
-            return False
-        if virt == 10:
-            return True
-        raise Exception('Error checking virtualization status')
-    if sub_check('is_virtual'):
-        return 'VIRTUAL'
-    return 'NOTVIRTUAL'
-
 # Check virtualization }}}
+
+
+title = "Persistence helper"
+
+
+class PersistenceOptionsFrame(gtk.Frame):
+
+    def __init__(self):
+        gtk.Frame.__init__(self, _("Options"))
+        box = gtk.Table(3, 2, True)
+        self.add(box)
+
+        self.error_label = gtk.Label()
+        self.error_label.set_visible(False)
+
+        self.passphrase_label = gtk.Label(_("Passphrase"))
+        self.passphrase_input = gtk.Entry()
+
+        self.repeat_passphrase_label = gtk.Label(_("Repeat passphrase"))
+        self.repeat_passphrase_input = gtk.Entry()
+
+        self.fill_random_label = gtk.Label(_("Fill with random data"))
+        self.fill_random_input = gtk.CheckButton()
+
+        box.attach(self.passphrase_label, 0, 1, 0, 1)
+        box.attach(self.passphrase_input, 1, 2, 0, 1)
+
+        box.attach(self.repeat_passphrase_label, 0, 1, 1, 2)
+        box.attach(self.repeat_passphrase_input, 1, 2, 1, 2)
+
+        box.attach(self.fill_random_label, 0, 1, 2, 3)
+        box.attach(self.fill_random_input, 1, 2, 2, 3)
+
+    def set_error_label(self, error):
+        if error == None:
+            self.error_label.hide()
+        else:
+            self.error_label.set_markup(error)
+            self.error_label.show()
+
+    def set_sensitive(self, sensitive):
+        self.passphrase_input.set_sensitive(sensitive)
+        self.repeat_passphrase_input.set_sensitive(sensitive)
+        self.fill_random_input.set_sensitive(sensitive)
+
+
+class AbsentWindow(gtk.Window):
+
+    def __init__(self, icon):
+        gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+        self.set_title(title)
+        self.set_border_width(10)
+        self.icon = icon
+        self.box = gtk.VBox(False, 0)
+        self.options_frame = PersistenceOptionsFrame()
+        self.progress_bar = gtk.ProgressBar()
+        self.progress_label = gtk.Label()
+        self.button = gtk.Button(_("Create persistence"))
+
+        if self.get_root_device() is not None:
+            label = gtk.Label(_("Persistence not available (do you want to create it?)"))
+            self.button.connect('clicked', self.make_persistence)
+            self.box.add(label)
+            self.box.add(self.options_frame)
+            self.box.add(self.button)
+            self.box.add(self.progress_label)
+            self.box.add(self.progress_bar)
+            self.add(self.box)
+            self.show_all()
+            self.progress_bar.hide()
+            self.progress_label.hide()
+        else:
+            label = gtk.Label(_("Disk not found"))
+
+    def get_root_device(self):
+        try:
+            return check_output(["check-persistence", "get-root-device"]).strip()
+        except CalledProcessError:
+            return None
+
+    def check_options(self):
+        passphrase = self.options_frame.passphrase_input.get_text()
+        repeat_passphrase = self.options_frame.repeat_passphrase_input.get_text()
+        if passphrase != repeat_passphrase:
+            self.options_frame.set_error_label(_("Passphrase mismatch."))
+            return False
+        elif len(passphrase) < 8:
+            self.options_frame.set_error_label(_("Passphrase must be at least 8 characters."))
+            return False
+        else:
+            self.options_frame.set_error_label(None)
+            return True
+
+    def make_persistence(self, widget, data=None):
+        if self.check_options():
+            self.options_frame.set_sensitive(False)
+            self.button.set_sensitive(False)
+            self.progress_label.set_markup(_("Creating persistence..."))
+            self.progress_label.show()
+            self.progress_bar.set_fraction(0.5)
+            self.progress_bar.show()
+            self.create_persistence()
+
+    def create_persistence(self):
+        '''apre un terminale ed esegue lo script indicato in command'''
+        emulation = "xterm"
+        passphrase = self.options_frame.passphrase_input.get_text()
+        fill_random = self.options_frame.fill_random_input.get_active()
+        command = ["makepersistence", "-p", passphrase, "%s2" % self.get_root_device()]
+        if not fill_random:
+            command.insert(1, "-r")
+        if os.getuid() != 0:
+            command = ["su-to-root", "-X", "-c", " ".join(command)]
+        term = vte.Terminal()
+        term.set_emulation(emulation)
+
+        scrollbar = gtk.VScrollbar()
+        scrollbar.set_adjustment(term.get_adjustment())
+
+        term_box = gtk.HBox()
+        term_box.pack_start(term)
+        term_box.pack_start(scrollbar)
+
+        ret_code = term.get_child_exit_status()
+        term.connect("child-exited",
+                 lambda term: self.post_persistence(ret_code))
+        term.fork_command(command[0], command)
+        self.box.add(term_box)
+        self.show_all()
+
+    def post_persistence(self, ret_code):
+        '''
+        cose da fare dopo che lo script makepersistence ha fatto il suo
+        sporco lavoro.
+        attualmente ricontrollo lo status della persistenza, aggiorno
+        l'icona
+        '''
+        icon.refresh_persistence_status()
+        self.icon.refresh_icon()
+
+        if ret_code == 0:
+            self.progress_bar.set_fraction(1)
+            self.progress_label.set_markup(_("Execution completed. Check in the windows if the persistence was created correctly"))
+        else:
+            self.progress_label.set_markup(_("Errors in persistence creation.\n\nCode: %s" % ret))
+
+
+class MountedWindow(gtk.Window):
+
+    def __init__(self):
+        gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+        self.set_title(title)
+        self.set_border_width(10)
+        label = gtk.Label(_("Persistence mounted."))
+        self.add(label)
+        self.show_all()
+
+
+class LiveWindow(gtk.Window):
+
+    def __init__(self):
+        gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+        self.set_title(title)
+        self.set_border_width(10)
+        label = gtk.Label(_("Persistence no mounted, but available (maybe you want to reboot?)"))
+        self.add(label)
+        self.show_all()
+
 
 class LiveIcon:
     '''
@@ -81,10 +207,7 @@ class LiveIcon:
         self.icon = gtk.StatusIcon()
         self.status = None
         self.refresh_icon()
-        try:
-            self.status = get_persistence_status()
-        except Exception:
-            logging.exception("Status unknown")
+        self.refresh_persistence_status()
         self.dialog = None
         self.refresh_icon()
         self.icon.connect("activate", self.show_popup)
@@ -123,94 +246,70 @@ class LiveIcon:
             self.dialog.destroy()
             return
 
-        values = {'disk': get_root_device()}
-
         if self.status == 'ABSENT':
+            if self.is_virtualized():
+                window = AbsentWindow(self)
+        elif self.status == 'LIVE':
+            window = LiveWindow()
+        else:
+            window = MountedWindow()
+
+    def is_virtualized(self):
+        if self.check_virtualization() == "VIRTUAL":
             self.dialog = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
                                             type=gtk.MESSAGE_QUESTION,
                                             buttons=gtk.BUTTONS_YES_NO)
-            self.dialog.set_markup(_("No persistence detected, do you want to create it?"))
-            self.dialog.set_title("Persistence helper")
-            response = self.dialog.run()
+            self.dialog.set_markup(_("Freepto seems running on a virtual machine. This could be a risk for your privacy. Do you want to continue?"))
+            self.dialog.set_title(_("Virtualization Checking"))
+            virtresponse = self.dialog.run()
             self.dialog.destroy()
             self.dialog = None
-            if response == gtk.RESPONSE_YES:
-                if check_virtualization() == "VIRTUAL":
-                    self.dialog = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
-                                                    type=gtk.MESSAGE_QUESTION,
-                                                    buttons=gtk.BUTTONS_YES_NO)
-                    self.dialog.set_markup(_("Freepto seems running on a virtual machine. This could be a risk for your privacy. Do you want to continue?"))
-                    self.dialog.set_title(_("Virtualization Checking"))
-                    virtresponse = self.dialog.run()
-                    self.dialog.destroy()
-                    self.dialog = None
-                else:
-                    ''' if not virtualization detected,
-                    set virtrespose variable to yes '''
-                    virtresponse = gtk.RESPONSE_YES
-                if virtresponse == gtk.RESPONSE_YES:
-                    if get_root_device() is not None:
-                        self.make_persistence()
-                    else:
-                        err = gtk.MessageDialog(None, type=gtk.MESSAGE_ERROR,
-                                                buttons=gtk.BUTTONS_OK)
-                        err.set_markup(_("Can't detect disk, aborting"))
-                        err.set_title(_("Error: disk not detected"))
-                        err.run()
-                        err.destroy()
+        else:
+            ''' if not virtualization detected,
+            set virtrespose variable to yes '''
+            virtresponse = gtk.RESPONSE_YES
+        if virtresponse == gtk.RESPONSE_YES:
+            return True
+        else:
+            return False
 
-    def make_persistence(self):
-        '''apre un terminale ed esegue lo script indicato in command'''
-        #TODO: muovere dentro LiveIcon ?
-        emulation = "xterm"
-        #command = "/usr/bin/find /root -type d"
-        #command = "/usr/bin/makepersistence"
-        command = ["makepersistence", "-r", "%s2" % get_root_device()]
-        if os.getuid() != 0:
-            command = ["su-to-root", "-X", "-c", " ".join(command)]
-        term = vte.Terminal()
-        term.set_emulation(emulation)
+    def check_virtualization(self):
+        '''
+        check if freepto is running on a virtualized system.
+        return values:
+            VIRTUAL
+            NOTVIRTUAL
+        '''
+        def sub_check(subcmd):
+            virt = call(['check-virt', subcmd])
+            if virt == 0:
+                return False
+            if virt == 10:
+                return True
+            raise Exception('Error checking virtualization status')
+        if sub_check('is_virtual'):
+            return 'VIRTUAL'
+        return 'NOTVIRTUAL'
 
-        def post_persistence(window, term):
-            '''
-            cose da fare dopo che lo script makepersistence ha fatto il suo
-            sporco lavoro.
-            attualmente ricontrollo lo status della persistenza, aggiorno
-            l'icona e chiudo il terminale
-            '''
-            icon.status = get_persistence_status()
-            icon.refresh_icon()
-            ret = term.get_child_exit_status()
-            if ret == 0:
-                msg = gtk.MessageDialog(window, buttons=gtk.BUTTONS_OK)
-                msg.set_markup(_("Execution completed. Check in the windows if the persistence was created correctly"))
-                msg.set_title(_("makepersistence complete"))
-            else:
-                msg = gtk.MessageDialog(window, type=gtk.MESSAGE_ERROR,
-                                        buttons=gtk.BUTTONS_OK)
-                msg.set_markup(_("Errors in persistence creation.\n\nCode: %s" % ret))
-                msg.set_title(_("makepersistence complete"))
+    def refresh_persistence_status(self):
+        '''return one of MOUNTED, LIVE, ABSENT'''
+        try:
+            def sub_check(subcmd):
+                ret = call(['check-persistence', subcmd])
+                if ret == 0:
+                    return True
+                if ret == 10:
+                    return False
+                raise Exception('Error checking persistence status')
+            if sub_check('is-mounted'):
+                self.status = 'MOUNTED'
+            if sub_check('has-avail-persistence'):
+                self.status = 'LIVE'
+            self.status = 'ABSENT'
+        except Exception:
+            logging.exception("Status unknown")
 
-            msg.run()
-            msg.destroy()
-            window.destroy()
 
-        termwindow = gtk.Window()
-        scrollbar = gtk.VScrollbar()
-        scrollbar.set_adjustment(term.get_adjustment())
-
-        box = gtk.HBox()
-        box.pack_start(term)
-        box.pack_start(scrollbar)
-
-        termwindow.add(box)
-        term.connect("child-exited",
-                     lambda term: post_persistence(termwindow, term))
-        term.fork_command(command[0], command)
-
-        termwindow.connect('delete-event',
-                           lambda window, event: window.destroy())
-        termwindow.show_all()
 
 
 if __name__ == '__main__':
