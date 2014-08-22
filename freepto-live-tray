@@ -35,9 +35,6 @@ class PersistenceOptionsFrame(gtk.Frame):
         box = gtk.Table(3, 2, False)
         self.add(box)
 
-        self.error_label = gtk.Label()
-        self.error_label.set_visible(False)
-
         self.passphrase_label = gtk.Label(_("Passphrase"))
         self.passphrase_input = gtk.Entry()
 
@@ -56,12 +53,15 @@ class PersistenceOptionsFrame(gtk.Frame):
         box.attach(self.fill_random_label, 0, 1, 2, 3)
         box.attach(self.fill_random_input, 1, 2, 2, 3)
 
-    def set_error_label(self, error):
-        if error == None:
-            self.error_label.hide()
-        else:
-            self.error_label.set_markup(error)
-            self.error_label.show()
+    def show_error(self, text):
+        msg = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
+                                type=gtk.MESSAGE_ERROR,
+                                buttons=gtk.BUTTONS_OK,
+                                message_format=text
+                               )
+
+        msg.run()
+        msg.destroy()
 
     def set_sensitive(self, sensitive):
         self.passphrase_input.set_sensitive(sensitive)
@@ -133,13 +133,12 @@ class AbsentWindow(gtk.Window):
         passphrase = self.options_frame.passphrase_input.get_text()
         repeat_passphrase = self.options_frame.repeat_passphrase_input.get_text()
         if passphrase != repeat_passphrase:
-            self.options_frame.set_error_label(_("Passphrase mismatch."))
+            self.options_frame.show_error(_("Passphrase mismatch."))
             return False
         elif len(passphrase) < 8:
-            self.options_frame.set_error_label(_("Passphrase must be at least 8 characters."))
+            self.options_frame.show_error(_("Passphrase must be at least 8 characters."))
             return False
         else:
-            self.options_frame.set_error_label(None)
             return True
 
     def make_persistence(self, widget, data=None):
