@@ -24,9 +24,6 @@ except:
     sys.exit(1)
 
 
-### Check virtualization {{{
-# Check virtualization }}}
-
 
 title = "Persistence helper"
 
@@ -35,7 +32,7 @@ class PersistenceOptionsFrame(gtk.Frame):
 
     def __init__(self):
         gtk.Frame.__init__(self, _("Options"))
-        box = gtk.Table(3, 2, True)
+        box = gtk.Table(3, 2, False)
         self.add(box)
 
         self.error_label = gtk.Label()
@@ -70,6 +67,32 @@ class PersistenceOptionsFrame(gtk.Frame):
         self.passphrase_input.set_sensitive(sensitive)
         self.repeat_passphrase_input.set_sensitive(sensitive)
         self.fill_random_input.set_sensitive(sensitive)
+
+
+class PersistenceTerminal(gtk.Frame):
+
+    def __init__(self):
+        gtk.Frame.__init__(self, _('Make persistence details'))
+
+        self.term = vte.Terminal()
+        self.term.set_emulation('xterm')
+
+        scrollbar = gtk.VScrollbar()
+        scrollbar.set_adjustment(self.term.get_adjustment())
+
+        term_box = gtk.HBox()
+        term_box.pack_start(self.term)
+        term_box.pack_start(scrollbar)
+
+        self.add(term_box)
+
+    def fork_command(self, command):
+        self.term.fork_command(command[0], command)
+
+    def set_post_persistence(self, post_persistence):
+        code = self.term.get_child_exit_status()
+        self.term.connect('child-exited',
+                 lambda term: post_persistence(code))
 
 
 class AbsentWindow(gtk.Window):
@@ -131,7 +154,6 @@ class AbsentWindow(gtk.Window):
 
     def create_persistence(self):
         '''apre un terminale ed esegue lo script indicato in command'''
-        emulation = "xterm"
         passphrase = self.options_frame.passphrase_input.get_text()
         fill_random = self.options_frame.fill_random_input.get_active()
         command = ["makepersistence", "-p", passphrase, "%s2" % self.get_root_device()]
@@ -139,21 +161,12 @@ class AbsentWindow(gtk.Window):
             command.insert(1, "-r")
         if os.getuid() != 0:
             command = ["su-to-root", "-X", "-c", " ".join(command)]
-        term = vte.Terminal()
-        term.set_emulation(emulation)
 
-        scrollbar = gtk.VScrollbar()
-        scrollbar.set_adjustment(term.get_adjustment())
+        term = PersistenceTerminal()
+        term.set_post_persistence(self.post_persistence)
+        term.fork_command(command)
 
-        term_box = gtk.HBox()
-        term_box.pack_start(term)
-        term_box.pack_start(scrollbar)
-
-        ret_code = term.get_child_exit_status()
-        term.connect("child-exited",
-                 lambda term: self.post_persistence(ret_code))
-        term.fork_command(command[0], command)
-        self.box.add(term_box)
+        self.box.add(term)
         self.show_all()
 
     def post_persistence(self, ret_code):
@@ -305,7 +318,8 @@ class LiveIcon:
                 self.status = 'MOUNTED'
             if sub_check('has-avail-persistence'):
                 self.status = 'LIVE'
-            self.status = 'ABSENT'
+            else:
+                self.status = 'ABSENT'
         except Exception:
             logging.exception("Status unknown")
 
