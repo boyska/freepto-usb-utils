@@ -181,9 +181,22 @@ class AbsentWindow(gtk.Window):
 
         if ret_code == 0:
             self.progress_bar.set_fraction(1)
-            self.progress_label.set_markup(_("Execution completed. Check in the windows if the persistence was created correctly"))
+            self.progress_bar.set_text(_('Completed'))
+            info = _('Persistence created! You must reboot the system to use it.')
+            self.progress_label.set_markup(info)
+            msg = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
+                                    buttons=gtk.BUTTONS_OK,
+                                    type=gtk.MESSAGE_INFO,
+                                    message_format=info)
         else:
-            self.progress_label.set_markup(_("Errors in persistence creation.\n\nCode: %s" % ret))
+            info = _('Errors in persistence creation.\n\nCode: %s' % ret)
+            self.progress_label.set_markup(info)
+            msg = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
+                                    buttons=gtk.BUTTONS_OK,
+                                    type=gtk.MESSAGE_ERROR,
+                                    message_format=info)
+        msg.run()
+        msg.destroy()
 
 
 class MountedWindow(gtk.Window):
