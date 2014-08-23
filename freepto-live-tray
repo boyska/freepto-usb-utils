@@ -35,13 +35,13 @@ class PersistenceOptionsFrame(gtk.Frame):
         box = gtk.Table(3, 2, False)
         self.add(box)
 
-        self.passphrase_label = gtk.Label(_("Passphrase"))
+        self.passphrase_label = Label(_("Passphrase"))
         self.passphrase_input = gtk.Entry()
 
-        self.repeat_passphrase_label = gtk.Label(_("Repeat passphrase"))
+        self.repeat_passphrase_label = Label(_("Repeat passphrase"))
         self.repeat_passphrase_input = gtk.Entry()
 
-        self.fill_random_label = gtk.Label(_("Fill with random data"))
+        self.fill_random_label = Label(_("Fill with random data"))
         self.fill_random_input = gtk.CheckButton()
 
         box.attach(self.passphrase_label, 0, 1, 0, 1)
@@ -95,6 +95,13 @@ class PersistenceTerminal(gtk.Frame):
                  lambda term: post_persistence(code))
 
 
+class Label(gtk.Label):
+
+    def __init__(self, text=''):
+        gtk.Label.__init__(self, text)
+        self.set_line_wrap(True)
+
+
 class Window(gtk.Window):
 
     def __init__(self, icon):
@@ -102,15 +109,33 @@ class Window(gtk.Window):
         self.set_title(title)
         self.icon = icon
 
-        self.box = gtk.VBox(False, 0)
-        self.add(self.box)
+        main_box = gtk.VBox(False, 6)
+        self.add(main_box)
 
         menu_bar = gtk.MenuBar()
         menu_bar.append(self.get_file_menu())
         menu_bar.append(self.get_help_menu())
 
-        self.box.add(menu_bar)
-        self.box.add(self.get_info())
+        cols_box = gtk.HBox(False, 6)
+        cols_box.pack_start(self.get_info(), False)
+
+        self.box = gtk.VBox(False, 6)
+        cols_box.pack_start(self.box, True)
+
+        main_box.pack_start(menu_bar, False)
+        main_box.pack_start(cols_box, False)
+
+        self.box.pack_start(self.get_help(), False)
+        self.box.pack_start(gtk.HSeparator(), True)
+
+    def get_help(self):
+        icon = gtk.Image()
+        icon.set_from_stock(gtk.STOCK_DIALOG_INFO, gtk.ICON_SIZE_DIALOG)
+        description = Label(_('The persistence is the encrypted space on Freepto where you data is securely stored.'))
+        box = gtk.HBox(False, 10)
+        box.add(icon)
+        box.add(description)
+        return box
         
     def get_file_menu(self):
         file_menu = gtk.MenuItem('File')
@@ -138,30 +163,29 @@ class Window(gtk.Window):
  
         return help_menu
 
-
     def refresh(self, widget, data=None):
         self.icon.refresh_icon()
 
     def get_info(self):
-        device_label = gtk.Label(_('Device'))
-        device = gtk.Label(self.get_root_device())
-        persistence_avai_label = gtk.Label(_('Persistence available'))
-        persistence_avai_text = _('No') if self.icon.status == 'ABSENT' else _('Yes')
-        persistence_avai = gtk.Label(persistence_avai_text)
-        persistence_mount_label = gtk.Label(_('Persistence mounted'))
-        persistence_mount_text = _('Yes') if self.icon.status == 'MOUNT' else _('No')
-        persistence_mount = gtk.Label(persistence_mount_text)
+        device_text = _('Device: %s' % self.get_root_device())
+        device = Label(device_text)
 
-        table = gtk.Table(3, 2)
-        table.attach(device_label, 0, 1, 0, 1)
-        table.attach(device, 1, 2, 0, 1)
-        table.attach(persistence_avai_label, 0, 1, 1, 2)
-        table.attach(persistence_avai, 1, 2, 1, 2)
-        table.attach(persistence_mount_label, 0, 1, 2, 3)
-        table.attach(persistence_mount, 1, 2, 2, 3)
+        persistence_avai_value = _('No') if self.icon.status == 'ABSENT' else _('Yes')
+        persistence_avai_text = _('Persistence available: %s' % persistence_avai_value)
+        persistence_avai = Label(persistence_avai_text)
+
+        persistence_mount_value = _('Yes') if self.icon.status == 'MOUNT' else _('No')
+        persistence_mount_text = _('Persistence mounted: %s' % persistence_mount_value)
+        persistence_mount = Label(persistence_mount_text)
+
+        box = gtk.VBox(False, 4)
+        box.pack_start(device, False)
+        box.pack_start(persistence_avai, False)
+        box.pack_start(persistence_mount, False)
 
         frame = gtk.Frame(_('Device info'))
-        frame.add(table)
+        frame.add(box)
+
         return frame
 
     def get_root_device(self):
@@ -177,11 +201,11 @@ class AbsentWindow(Window):
         Window.__init__(self, icon)
         self.options_frame = PersistenceOptionsFrame()
         self.progress_bar = gtk.ProgressBar()
-        self.progress_label = gtk.Label()
+        self.progress_label = Label()
         self.button = gtk.Button(_("Create persistence"))
 
         if self.get_root_device() is not None:
-            label = gtk.Label(_("Persistence not available (do you want to create it?)"))
+            label = Label(_("Persistence is not available, but you can create it. Fill the form and click on 'Create persistence'."))
             self.button.connect('clicked', self.make_persistence)
             self.box.add(label)
             self.box.add(self.options_frame)
@@ -192,7 +216,7 @@ class AbsentWindow(Window):
             self.progress_bar.hide()
             self.progress_label.hide()
         else:
-            label = gtk.Label(_("Disk not found"))
+            label = Label(_("Disk not found"))
 
     def check_options(self):
         passphrase = self.options_frame.passphrase_input.get_text()
@@ -267,8 +291,13 @@ class MountedWindow(Window):
 
     def __init__(self, icon):
         Window.__init__(self, icon)
-        label = gtk.Label(_("Persistence mounted."))
-        self.box.add(label)
+        icon = gtk.Image()
+        icon.set_from_stock(gtk.STOCK_YES, gtk.ICON_SIZE_DIALOG)
+        label = Label(_("Persistence available an Freepto is using it."))
+        box = gtk.HBox(False, 6)
+        box.pack_start(icon, False)
+        box.pack_start(label, True)
+        self.box.add(box)
         self.show_all()
 
 
@@ -276,8 +305,13 @@ class LiveWindow(Window):
 
     def __init__(self, icon):
         Window.__init__(self, icon)
-        label = gtk.Label(_("Persistence no mounted, but available (maybe you want to reboot?)"))
-        self.box.add(label)
+        icon = gtk.Image()
+        icon.set_from_stock(gtk.STOCK_NO, gtk.ICON_SIZE_DIALOG)
+        label = Label(_("Persistence available but Freepto is not using it. You must reboot the system to use persistence."))
+        box = gtk.HBox(False, 6)
+        box.pack_start(icon, False)
+        box.pack_start(label, True)
+        self.box.add(box)
         self.show_all()
 
 
