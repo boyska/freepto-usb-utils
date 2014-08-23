@@ -95,7 +95,7 @@ class PersistenceHelper(gtk.Window):
         box.add(icon)
         box.add(description)
         return box
-        
+
     def get_file_menu(self):
         '''
         Returns the "File" menu
@@ -126,7 +126,7 @@ class PersistenceHelper(gtk.Window):
 
         help_menu.set_submenu(help_submenu)
         help_submenu.append(about)
- 
+
         return help_menu
 
     def show_about_dialog(self, widget, data=None):
@@ -392,7 +392,7 @@ class AbsentWidget(gtk.VBox):
 #}}}
 
 
-#{{{ Mounted widget 
+#{{{ Mounted widget
 
 class MountedWidget(gtk.VBox):
     '''
@@ -483,7 +483,7 @@ class LiveIcon:
                 raise Exception('Error checking persistence status')
             if sub_check('is-mounted'):
                 self.status = 'MOUNTED'
-            if sub_check('has-avail-persistence'):
+            elif sub_check('has-avail-persistence'):
                 self.status = 'LIVE'
             else:
                 self.status = 'ABSENT'
