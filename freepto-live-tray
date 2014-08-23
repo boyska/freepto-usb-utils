@@ -100,33 +100,76 @@ class Window(gtk.Window):
     def __init__(self, icon):
         gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
         self.set_title(title)
-        self.set_border_width(10)
         self.icon = icon
 
         self.box = gtk.VBox(False, 0)
         self.add(self.box)
 
         menu_bar = gtk.MenuBar()
-        root_menu = gtk.MenuItem('Persistence helper')
-        main_menu = gtk.Menu()
+        menu_bar.append(self.get_file_menu())
+        menu_bar.append(self.get_help_menu())
+
+        self.box.add(menu_bar)
+        self.box.add(self.get_info())
+        
+    def get_file_menu(self):
+        file_menu = gtk.MenuItem('File')
+        file_submenu = gtk.Menu()
 
         refresh = gtk.ImageMenuItem(gtk.STOCK_REFRESH, _('Refresh'))
         refresh.connect('activate', self.refresh)
         exit = gtk.ImageMenuItem(gtk.STOCK_QUIT, _('Exit'))
         exit.connect('activate', gtk.main_quit)
 
-        root_menu.set_submenu(main_menu)
-        main_menu.append(refresh)
-        main_menu.append(exit)
-        menu_bar.append(root_menu)
+        file_menu.set_submenu(file_submenu)
+        file_submenu.append(refresh)
+        file_submenu.append(exit)
 
-        self.box.add(menu_bar)
-        
+        return file_menu
 
-        root_menu = gtk.MenuItem('Persistence helper')
+    def get_help_menu(Self):
+        help_menu = gtk.MenuItem(_('Help'))
+        help_submenu = gtk.Menu()
+
+        about = gtk.ImageMenuItem(gtk.STOCK_ABOUT, _('About'))
+
+        help_menu.set_submenu(help_submenu)
+        help_submenu.append(about)
+ 
+        return help_menu
+
 
     def refresh(self, widget, data=None):
         self.icon.refresh_icon()
+
+    def get_info(self):
+        device_label = gtk.Label(_('Device'))
+        device = gtk.Label(self.get_root_device())
+        persistence_avai_label = gtk.Label(_('Persistence available'))
+        persistence_avai_text = _('No') if self.icon.status == 'ABSENT' else _('Yes')
+        persistence_avai = gtk.Label(persistence_avai_text)
+        persistence_mount_label = gtk.Label(_('Persistence mounted'))
+        persistence_mount_text = _('Yes') if self.icon.status == 'MOUNT' else _('No')
+        persistence_mount = gtk.Label(persistence_mount_text)
+
+        table = gtk.Table(3, 2)
+        table.attach(device_label, 0, 1, 0, 1)
+        table.attach(device, 1, 2, 0, 1)
+        table.attach(persistence_avai_label, 0, 1, 1, 2)
+        table.attach(persistence_avai, 1, 2, 1, 2)
+        table.attach(persistence_mount_label, 0, 1, 2, 3)
+        table.attach(persistence_mount, 1, 2, 2, 3)
+
+        frame = gtk.Frame(_('Device info'))
+        frame.add(table)
+        return frame
+
+    def get_root_device(self):
+        try:
+            return check_output(["check-persistence", "get-root-device"]).strip()
+        except CalledProcessError:
+            return None
+
 
 class AbsentWindow(Window):
 
@@ -150,12 +193,6 @@ class AbsentWindow(Window):
             self.progress_label.hide()
         else:
             label = gtk.Label(_("Disk not found"))
-
-    def get_root_device(self):
-        try:
-            return check_output(["check-persistence", "get-root-device"]).strip()
-        except CalledProcessError:
-            return None
 
     def check_options(self):
         passphrase = self.options_frame.passphrase_input.get_text()
