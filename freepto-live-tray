@@ -11,7 +11,11 @@ gettext.textdomain('freepto-usb-utils')
 _ = gettext.gettext
 import vte
 
-title = "Persistence helper"
+def get_root_device():
+    try:
+        return check_output(["check-persistence", "get-root-device"]).strip()
+    except CalledProcessError:
+        return None
 
 
 class PersistenceOptionsFrame(gtk.Frame):
@@ -92,7 +96,7 @@ class Window(gtk.Window):
 
     def __init__(self, icon):
         gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
-        self.set_title(title)
+        self.set_title('Persistence helper')
         self.icon = icon
 
         main_box = gtk.VBox(False, 6)
@@ -103,16 +107,28 @@ class Window(gtk.Window):
         menu_bar.append(self.get_help_menu())
 
         cols_box = gtk.HBox(False, 6)
-        cols_box.pack_start(self.get_info(), False)
 
         self.box = gtk.VBox(False, 6)
         cols_box.pack_start(self.box, True)
+        cols_box.pack_start(self.get_info(), False)
 
         main_box.pack_start(menu_bar, False)
         main_box.pack_start(cols_box, False)
 
         self.box.pack_start(self.get_help(), False)
         self.box.pack_start(gtk.HSeparator(), True)
+
+        if self.icon.status == 'ABSENT':
+            self.box.add(AbsentWidget(self.icon))
+        elif self.icon.status == 'LIVE':
+            self.box.add(LiveWidget())
+        else:
+            self.box.add(MountedWidget())
+
+        self.show_all()
+
+    def refresh(self, widget=None, data=None):
+        self.icon.refresh()
 
     def get_help(self):
         icon = gtk.Image()
@@ -149,11 +165,9 @@ class Window(gtk.Window):
  
         return help_menu
 
-    def refresh(self, widget, data=None):
-        self.icon.refresh_icon()
 
     def get_info(self):
-        device_text = _('Device: %s' % self.get_root_device())
+        device_text = _('Device: %s' % get_root_device())
         device = Label(device_text)
 
         persistence_avai_value = _('No') if self.icon.status == 'ABSENT' else _('Yes')
@@ -174,30 +188,26 @@ class Window(gtk.Window):
 
         return frame
 
-    def get_root_device(self):
-        try:
-            return check_output(["check-persistence", "get-root-device"]).strip()
-        except CalledProcessError:
-            return None
 
 
-class AbsentWindow(Window):
+class AbsentWidget(gtk.VBox):
 
     def __init__(self, icon):
-        Window.__init__(self, icon)
+        gtk.VBox.__init__(self, False, 6)
+        self.icon = icon
         self.options_frame = PersistenceOptionsFrame()
         self.progress_bar = gtk.ProgressBar()
         self.progress_label = Label()
         self.button = gtk.Button(_("Create persistence"))
 
-        if self.get_root_device() is not None:
+        if get_root_device() is not None:
             label = Label(_("Persistence is not available, but you can create it. Fill the form and click on 'Create persistence'."))
             self.button.connect('clicked', self.make_persistence)
-            self.box.add(label)
-            self.box.add(self.options_frame)
-            self.box.add(self.button)
-            self.box.add(self.progress_label)
-            self.box.add(self.progress_bar)
+            self.add(label)
+            self.add(self.options_frame)
+            self.add(self.button)
+            self.add(self.progress_label)
+            self.add(self.progress_bar)
             self.show_all()
             self.progress_bar.hide()
             self.progress_label.hide()
@@ -229,7 +239,7 @@ class AbsentWindow(Window):
         '''apre un terminale ed esegue lo script indicato in command'''
         passphrase = self.options_frame.passphrase_input.get_text()
         fill_random = self.options_frame.fill_random_input.get_active()
-        command = ["makepersistence", "-p", passphrase, "%s2" % self.get_root_device()]
+        command = ["makepersistence", "-p", passphrase, "%s2" % get_root_device()]
         if not fill_random:
             command.insert(1, "-r")
         if os.getuid() != 0:
@@ -239,7 +249,7 @@ class AbsentWindow(Window):
         term.set_post_persistence(self.post_persistence)
         term.fork_command(command)
 
-        self.box.add(term)
+        self.add(term)
         self.show_all()
 
     def post_persistence(self, ret_code):
@@ -249,8 +259,8 @@ class AbsentWindow(Window):
         attualmente ricontrollo lo status della persistenza, aggiorno
         l'icona
         '''
-        icon.refresh_persistence_status()
-        self.icon.refresh_icon()
+
+        self.icon.refresh()
 
         if ret_code == 0:
             self.progress_bar.set_fraction(1)
@@ -273,32 +283,30 @@ class AbsentWindow(Window):
         msg.destroy()
 
 
-class MountedWindow(Window):
+class MountedWidget(gtk.VBox):
 
-    def __init__(self, icon):
-        Window.__init__(self, icon)
+    def __init__(self):
+        Window.__init__(self)
         icon = gtk.Image()
         icon.set_from_stock(gtk.STOCK_YES, gtk.ICON_SIZE_DIALOG)
         label = Label(_("Persistence available an Freepto is using it."))
         box = gtk.HBox(False, 6)
         box.pack_start(icon, False)
         box.pack_start(label, True)
-        self.box.add(box)
-        self.show_all()
+        self.add(box)
 
 
-class LiveWindow(Window):
+class LiveWidget(gtk.VBox):
 
-    def __init__(self, icon):
-        Window.__init__(self, icon)
+    def __init__(self):
+        gtk.VBox.__init__(self, False, 6)
         icon = gtk.Image()
         icon.set_from_stock(gtk.STOCK_NO, gtk.ICON_SIZE_DIALOG)
         label = Label(_("Persistence available but Freepto is not using it. You must reboot the system to use persistence."))
         box = gtk.HBox(False, 6)
         box.pack_start(icon, False)
         box.pack_start(label, True)
-        self.box.add(box)
-        self.show_all()
+        self.add(box)
 
 
 class LiveIcon:
@@ -312,14 +320,13 @@ class LiveIcon:
     def __init__(self):
         self.icon = gtk.StatusIcon()
         self.status = None
-        self.refresh_icon()
-        self.refresh_persistence_status()
         self.dialog = None
-        self.refresh_icon()
+        self.refresh()
         self.icon.connect("activate", self.show_popup)
         self.icon.connect("popup-menu", self.right_click_event)
 
-    def refresh_icon(self):
+    def refresh(self):
+        self.refresh_persistence_status()
         if self.status == 'MOUNTED':
             self.icon.set_from_stock(gtk.STOCK_YES)
             self.icon.set_tooltip(_("Persistence mounted"))
@@ -332,6 +339,28 @@ class LiveIcon:
         else:
             self.icon.set_from_stock(gtk.STOCK_NEW)
             self.icon.set_tooltip(_('Checking...'))
+
+    def refresh_persistence_status(self):
+        '''return one of MOUNTED, LIVE, ABSENT'''
+        try:
+            def sub_check(subcmd):
+                ret = call(['check-persistence', subcmd])
+                if ret == 0:
+                    return True
+                if ret == 10:
+                    return False
+                raise Exception('Error checking persistence status')
+            if sub_check('is-mounted'):
+                self.status = 'MOUNTED'
+            if sub_check('has-avail-persistence'):
+                self.status = 'LIVE'
+            else:
+                self.status = 'ABSENT'
+        except Exception:
+            logging.exception("Status unknown")
+
+
+
 
     def right_click_event(self, icon, button, time):
         menu = gtk.Menu()
@@ -352,13 +381,7 @@ class LiveIcon:
             self.dialog.destroy()
             return
 
-        if self.status == 'ABSENT':
-            if self.warn_virtualization():
-                AbsentWindow(self)
-        elif self.status == 'LIVE':
-            LiveWindow()
-        else:
-            MountedWindow()
+        Window(icon)
 
     def warn_virtualization(self):
         if self.is_virtualized():
@@ -400,25 +423,6 @@ class LiveIcon:
                 return True
             raise Exception('Error checking virtualization status')
         return sub_check('is_virtual')
-
-    def refresh_persistence_status(self):
-        '''return one of MOUNTED, LIVE, ABSENT'''
-        try:
-            def sub_check(subcmd):
-                ret = call(['check-persistence', subcmd])
-                if ret == 0:
-                    return True
-                if ret == 10:
-                    return False
-                raise Exception('Error checking persistence status')
-            if sub_check('is-mounted'):
-                self.status = 'MOUNTED'
-            if sub_check('has-avail-persistence'):
-                self.status = 'LIVE'
-            else:
-                self.status = 'ABSENT'
-        except Exception:
-            logging.exception("Status unknown")
 
 
 if __name__ == '__main__':
