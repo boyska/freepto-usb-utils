@@ -95,14 +95,43 @@ class PersistenceTerminal(gtk.Frame):
                  lambda term: post_persistence(code))
 
 
-class AbsentWindow(gtk.Window):
+class Window(gtk.Window):
 
     def __init__(self, icon):
         gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
         self.set_title(title)
         self.set_border_width(10)
         self.icon = icon
+
         self.box = gtk.VBox(False, 0)
+        self.add(self.box)
+
+        menu_bar = gtk.MenuBar()
+        root_menu = gtk.MenuItem('Persistence helper')
+        main_menu = gtk.Menu()
+
+        refresh = gtk.ImageMenuItem(gtk.STOCK_REFRESH, _('Refresh'))
+        refresh.connect('activate', self.refresh)
+        exit = gtk.ImageMenuItem(gtk.STOCK_QUIT, _('Exit'))
+        exit.connect('activate', gtk.main_quit)
+
+        root_menu.set_submenu(main_menu)
+        main_menu.append(refresh)
+        main_menu.append(exit)
+        menu_bar.append(root_menu)
+
+        self.box.add(menu_bar)
+        
+
+        root_menu = gtk.MenuItem('Persistence helper')
+
+    def refresh(self, widget, data=None):
+        self.icon.refresh_icon()
+
+class AbsentWindow(Window):
+
+    def __init__(self, icon):
+        Window.__init__(self, icon)
         self.options_frame = PersistenceOptionsFrame()
         self.progress_bar = gtk.ProgressBar()
         self.progress_label = gtk.Label()
@@ -116,7 +145,6 @@ class AbsentWindow(gtk.Window):
             self.box.add(self.button)
             self.box.add(self.progress_label)
             self.box.add(self.progress_bar)
-            self.add(self.box)
             self.show_all()
             self.progress_bar.hide()
             self.progress_label.hide()
