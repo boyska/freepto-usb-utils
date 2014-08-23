@@ -245,6 +245,18 @@ class PersistenceTerminal(gtk.Frame):
                  lambda term: post_persistence(code))
 
 
+class VirtualizedWarning(gtk.HBox):
+
+    def __init__(self):
+        gtk.HBox.__init__(self, False, 6)
+        text = _("Freepto seems running on a virtual machine. " +
+                    "This could be a risk for your privacy.")
+        icon = gtk.Image()
+        icon.set_from_stock(gtk.STOCK_DIALOG_WARNING, gtk.ICON_SIZE_DIALOG)
+        self.pack_start(icon, False)
+        self.pack_start(WrappedLabel(text), False)
+
+
 class AbsentWidget(gtk.VBox):
     '''
     This widget is displayed when persistence is Absent and contains all stuff
@@ -254,6 +266,7 @@ class AbsentWidget(gtk.VBox):
     def __init__(self, icon):
         gtk.VBox.__init__(self, False, 6)
         self.icon = icon
+        
         self.options_frame = PersistenceOptionsForm()
         self.progress_bar = gtk.ProgressBar()
         self.progress_label = WrappedLabel()
@@ -264,6 +277,11 @@ class AbsentWidget(gtk.VBox):
             label = WrappedLabel(_("Persistence is not available, but you can create it. Fill the form and click on 'Create persistence'."))
             self.button.connect('clicked', self.make_persistence)
             self.add(label)
+            if self.is_virtualized():
+                self.pack_start(gtk.HSeparator(), False)
+                self.pack_start(VirtualizedWarning(), False)
+                self.pack_start(gtk.HSeparator(), False)
+
             self.add(self.options_frame)
             self.add(self.button)
             self.add(self.progress_label)
@@ -328,6 +346,22 @@ class AbsentWidget(gtk.VBox):
         self.progress_label.show()
         msg.run()
         msg.destroy()
+
+    def is_virtualized(self):
+        '''
+        Check if freepto is running on a virtualized system.
+        '''
+        def sub_check(subcmd):
+            cmd = ['check-virt', subcmd]
+            if os.getuid() != 0:
+                cmd.insert(0, 'fakeroot')
+            virt = call(cmd)
+            if virt == 0:
+                return False
+            if virt == 10:
+                return True
+            raise Exception('Error checking virtualization status')
+        return sub_check('is_virtual')
 
 #}}}
 
@@ -450,44 +484,6 @@ class LiveIcon:
 
         persistence_helper = PersistenceHelper(self)
         persistence_helper.show_all()
-
-    def warn_virtualization(self):
-        if self.is_virtualized():
-            self.dialog = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
-                                            type=gtk.MESSAGE_QUESTION,
-                                            buttons=gtk.BUTTONS_YES_NO)
-            self.dialog.set_markup(_(
-                "Freepto seems running on a virtual machine. " +
-                "This could be a risk for your privacy. " +
-                "Do you want to continue?"))
-            self.dialog.set_title(_("Virtualization Checking"))
-            virtresponse = self.dialog.run()
-            self.dialog.destroy()
-            self.dialog = None
-        else:
-            ''' if not virtualization detected,
-            set virtrespose variable to yes '''
-            virtresponse = gtk.RESPONSE_YES
-        if virtresponse == gtk.RESPONSE_YES:
-            return True
-        else:
-            return False
-
-    def is_virtualized(self):
-        '''
-        Check if freepto is running on a virtualized system.
-        '''
-        def sub_check(subcmd):
-            cmd = ['check-virt', subcmd]
-            if os.getuid() != 0:
-                cmd.insert(0, 'fakeroot')
-            virt = call(cmd)
-            if virt == 0:
-                return False
-            if virt == 10:
-                return True
-            raise Exception('Error checking virtualization status')
-        return sub_check('is_virtual')
 
 #}}}
 
