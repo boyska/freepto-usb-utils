@@ -416,6 +416,7 @@ class MountedWidget(gtk.VBox):
         box.pack_start(icon, False)
         box.pack_start(label, True)
         self.add(box)
+        self.show_all()
 
 #}}}
 
@@ -436,6 +437,7 @@ class LiveWidget(gtk.VBox):
         box.pack_start(icon, False)
         box.pack_start(label, True)
         self.add(box)
+        self.show_all()
 
 #}}}
 
