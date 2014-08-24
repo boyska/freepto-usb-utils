@@ -291,9 +291,10 @@ class AbsentWidget(gtk.VBox):
             self.button.connect('clicked', self.make_persistence)
             self.add(label)
             if self.is_virtualized():
-                self.pack_start(gtk.HSeparator(), False)
-                self.pack_start(VirtualizedWarning(), False)
-                self.pack_start(gtk.HSeparator(), False)
+                infobar = gtk.InfoBar()
+                infobar.set_message_type(gtk.MESSAGE_WARNING)
+                infobar.get_content_area().add(VirtualizedWarning())
+                self.pack_start(infobar, False)
 
             self.add(self.options_frame)
             self.add(self.button)
