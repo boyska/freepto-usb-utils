@@ -175,7 +175,8 @@ class PersistenceOptionsForm(gtk.Frame):
 
     def __init__(self):
         gtk.Frame.__init__(self, _("Options"))
-        box = gtk.Table(3, 2, False)
+        box = gtk.VBox(False, 4)
+        table = gtk.Table(3, 2, False)
         self.add(box)
 
         self.passphrase_label = WrappedLabel(_("Passphrase"))
@@ -189,14 +190,27 @@ class PersistenceOptionsForm(gtk.Frame):
         self.fill_random_label = WrappedLabel(_("Fill with random data"))
         self.fill_random_input = gtk.CheckButton()
 
-        box.attach(self.passphrase_label, 0, 1, 0, 1)
-        box.attach(self.passphrase_input, 1, 2, 0, 1)
+        self.button = gtk.Button(_("Create persistence"))
 
-        box.attach(self.repeat_passphrase_label, 0, 1, 1, 2)
-        box.attach(self.repeat_passphrase_input, 1, 2, 1, 2)
+        xpadding = 4
+        ypadding = 4
+        table.attach(self.passphrase_label, 0, 1, 0, 1, \
+                        xpadding=xpadding, ypadding=ypadding)
+        table.attach(self.passphrase_input, 1, 2, 0, 1, \
+                        xpadding=xpadding, ypadding=ypadding)
 
-        box.attach(self.fill_random_label, 0, 1, 2, 3)
-        box.attach(self.fill_random_input, 1, 2, 2, 3)
+        table.attach(self.repeat_passphrase_label, 0, 1, 1, 2, \
+                        xpadding=xpadding, ypadding=ypadding)
+        table.attach(self.repeat_passphrase_input, 1, 2, 1, 2, \
+                        xpadding=xpadding, ypadding=ypadding)
+
+        table.attach(self.fill_random_label, 0, 1, 2, 3, \
+                        xpadding=xpadding, ypadding=ypadding)
+        table.attach(self.fill_random_input, 1, 2, 2, 3, \
+                        xpadding=xpadding, ypadding=ypadding)
+
+        box.pack_start(table)
+        box.pack_start(self.button, padding=4)
 
     def show_error(self, text):
         msg = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
@@ -212,6 +226,7 @@ class PersistenceOptionsForm(gtk.Frame):
         self.passphrase_input.set_sensitive(sensitive)
         self.repeat_passphrase_input.set_sensitive(sensitive)
         self.fill_random_input.set_sensitive(sensitive)
+        self.button.set_sensitive(sensitive)
 
     def validate(self):
         '''
@@ -280,15 +295,14 @@ class AbsentWidget(gtk.VBox):
         gtk.VBox.__init__(self, False, 6)
         self.icon = icon
         
-        self.options_frame = PersistenceOptionsForm()
+        self.options_form = PersistenceOptionsForm()
         self.progress_bar = gtk.ProgressBar()
         self.progress_label = WrappedLabel()
-        self.button = gtk.Button(_("Create persistence"))
 
         # Check the Freepto device
         if get_root_device() is not None:
             label = WrappedLabel(_("Persistence is not available, but you can create it. Fill the form and click on 'Create persistence'."))
-            self.button.connect('clicked', self.make_persistence)
+            self.options_form.button.connect('clicked', self.make_persistence)
             self.add(label)
             if self.is_virtualized():
                 infobar = gtk.InfoBar()
@@ -296,8 +310,7 @@ class AbsentWidget(gtk.VBox):
                 infobar.get_content_area().add(VirtualizedWarning())
                 self.pack_start(infobar, False)
 
-            self.add(self.options_frame)
-            self.add(self.button)
+            self.add(self.options_form)
             self.add(self.progress_label)
             self.add(self.progress_bar)
             self.show_all()
@@ -311,17 +324,16 @@ class AbsentWidget(gtk.VBox):
         '''
         Create the persistence
         '''
-        if not self.options_frame.validate():
+        if not self.options_form.validate():
             return
 
-        self.options_frame.set_sensitive(False)
-        self.button.set_sensitive(False)
+        self.options_form.set_sensitive(False)
         self.progress_bar.set_fraction(0.5)
         self.progress_bar.set_text("Creating persistence...")
         self.progress_bar.show()
 
-        passphrase = self.options_frame.passphrase_input.get_text()
-        fill_random = self.options_frame.fill_random_input.get_active()
+        passphrase = self.options_form.passphrase_input.get_text()
+        fill_random = self.options_form.fill_random_input.get_active()
         command = ["makepersistence", "-p", passphrase, "%s2" % get_root_device()]
         if not fill_random:
             command.insert(1, "-r")
