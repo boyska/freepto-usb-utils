@@ -434,13 +434,23 @@ class LiveWidget(gtk.VBox):
         gtk.VBox.__init__(self, False, 6)
         icon = gtk.Image()
         icon.set_from_stock(gtk.STOCK_NO, gtk.ICON_SIZE_DIALOG)
+
         label = WrappedLabel(_("Persistence available but Freepto is not using it. You must reboot the system to use persistence."))
+        button = gtk.Button(_('Reboot the system'))
+        button.connect('activate', self.reboot)
+
         box = gtk.HBox(False, 6)
         box.pack_start(icon, False)
         box.pack_start(label, True)
-        self.add(box)
+
+        vbox = gtk.VBox(False, 6)
+        vbox.pack_start(box, False)
+        vbox.pack_start(button, False)
+        self.add(vbox)
         self.show_all()
 
+    def reboot(self):
+        call(['sudo', 'reboot'])
 #}}}
 
 
