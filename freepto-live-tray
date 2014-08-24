@@ -63,6 +63,7 @@ class PersistenceHelper(gtk.Window):
         menu_bar.append(self.get_help_menu())
 
         # 2 columns layout
+        self.warning_box = gtk.HBox(False, 0)
         cols_box = gtk.HBox(False, 6)
 
         self.helper_box = gtk.VBox(False, 6)
@@ -70,13 +71,7 @@ class PersistenceHelper(gtk.Window):
         cols_box.pack_start(self.get_info_widget(), False, padding=6)
 
         main_box.pack_start(menu_bar, False)
-
-        if self.is_virtualized() and self.icon.status == 'ABSENT':
-            infobar = gtk.InfoBar()
-            infobar.set_message_type(gtk.MESSAGE_WARNING)
-            infobar.get_content_area().add(VirtualizedWarning())
-            main_box.pack_start(infobar, False)
-
+        main_box.pack_start(self.warning_box, False)
         main_box.pack_start(cols_box, False)
 
         self.refresh()
@@ -102,6 +97,16 @@ class PersistenceHelper(gtk.Window):
         Refresh icon status and the persistence widget
         '''
         self.icon.refresh()
+
+        if self.is_virtualized() and self.icon.status == 'ABSENT':
+            infobar = gtk.InfoBar()
+            infobar.set_message_type(gtk.MESSAGE_WARNING)
+            infobar.get_content_area().add(VirtualizedWarning())
+            infobar.show_all()
+            self.warning_box.pack_start(infobar, True)
+        else:
+            for child in self.warning_box.get_children():
+                self.warning_box.remove(child)
 
         # Removing children
         for child in self.helper_box.get_children():
