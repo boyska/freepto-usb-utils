@@ -112,8 +112,6 @@ class PersistenceHelper(gtk.Window):
         for child in self.helper_box.get_children():
             self.helper_box.remove(child)
 
-        self.helper_box.add(HelperWidget())
-
         if self.icon.status == 'ABSENT':
             self.helper_box.add(AbsentWidget(self.icon))
         elif self.icon.status == 'LIVE':
@@ -190,16 +188,16 @@ class PersistenceHelper(gtk.Window):
 
 #}}}
 
-class HelperWidget(gtk.HBox):
+class HelperWidget(gtk.VBox):
 
     def __init__(self):
-        gtk.HBox.__init__(self, False, 10)
-        icon = gtk.Image()
-        icon.set_from_stock(gtk.STOCK_DIALOG_INFO, gtk.ICON_SIZE_DIALOG)
-        description = WrappedLabel(_('<b>What\' that?</b>\nThe persistence is the encrypted space on Freepto where your data is securely stored.'))
-        self.add(icon)
+        gtk.VBox.__init__(self, False, 10)
+        self.add(WrappedLabel(_("<b>What's that?</b>")))
+        text = _('The persistence is the encrypted space on Freepto where ' +
+                    'your data is securely stored.')
+        description = WrappedLabel(text)
         self.add(description)
-        self.show_all()
+        self.add(WrappedLabel(_('<b>Status</b>')))
        
 
 #{{{ Absent widget stuff
@@ -321,14 +319,14 @@ class VirtualizedWarning(gtk.HBox):
         self.pack_start(gtk.Label(text), True)
 
 
-class AbsentWidget(gtk.VBox):
+class AbsentWidget(HelperWidget):
     '''
     This widget is displayed when persistence is Absent and contains all stuff
     needed to create a new persistence.
     '''
 
     def __init__(self, icon):
-        gtk.VBox.__init__(self, False, 6)
+        HelperWidget.__init__(self)
         self.icon = icon
         
         self.options_form = PersistenceOptionsForm()
@@ -337,9 +335,15 @@ class AbsentWidget(gtk.VBox):
 
         # Check the Freepto device
         if get_root_device() is not None:
+            image = gtk.Image()
+            image.set_from_stock(gtk.STOCK_CDROM, gtk.ICON_SIZE_DIALOG)
             label = WrappedLabel(_("Persistence is not available, but you can create it. Fill the form and click on 'Create persistence'."))
             self.options_form.button.connect('clicked', self.make_persistence)
-            self.add(label)
+
+            hbox = gtk.HBox(False, 10)
+            hbox.pack_start(image, False)
+            hbox.pack_start(label, False)
+            self.add(hbox)
             self.add(self.options_form)
             self.add(self.progress_label)
             self.add(self.progress_bar)
@@ -409,13 +413,13 @@ class AbsentWidget(gtk.VBox):
 
 #{{{ Mounted widget
 
-class MountedWidget(gtk.VBox):
+class MountedWidget(HelperWidget):
     '''
     This widget is displayed when persistence is mounted.
     '''
 
     def __init__(self):
-        Window.__init__(self)
+        HelperWidget.__init__(self)
         icon = gtk.Image()
         icon.set_from_stock(gtk.STOCK_YES, gtk.ICON_SIZE_DIALOG)
         label = WrappedLabel(_("Persistence available an Freepto is using it."))
@@ -430,13 +434,13 @@ class MountedWidget(gtk.VBox):
 
 #{{{ Live widget
 
-class LiveWidget(gtk.VBox):
+class LiveWidget(HelperWidget):
     '''
     This widgets is displayed when persistence exists but is not mounted
     '''
 
     def __init__(self):
-        gtk.VBox.__init__(self, False, 6)
+        HelperWidget.__init__(self)
         icon = gtk.Image()
         icon.set_from_stock(gtk.STOCK_NO, gtk.ICON_SIZE_DIALOG)
 
@@ -456,7 +460,7 @@ class LiveWidget(gtk.VBox):
 
     def reboot_system(self, widget=None, data=None):
         call(['gksudo', 'reboot'])
-#}}}
+#}}} 
 
 
 #{{{ LiveIcon
