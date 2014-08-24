@@ -70,9 +70,32 @@ class PersistenceHelper(gtk.Window):
         cols_box.pack_start(self.get_info_widget(), False, padding=6)
 
         main_box.pack_start(menu_bar, False)
+
+        if self.is_virtualized() and self.icon.status == 'ABSENT':
+            infobar = gtk.InfoBar()
+            infobar.set_message_type(gtk.MESSAGE_WARNING)
+            infobar.get_content_area().add(VirtualizedWarning())
+            main_box.pack_start(infobar, False)
+
         main_box.pack_start(cols_box, False)
 
         self.refresh()
+
+    def is_virtualized(self):
+        '''
+        Check if freepto is running on a virtualized system.
+        '''
+        def sub_check(subcmd):
+            cmd = ['check-virt', subcmd]
+            if os.getuid() != 0:
+                cmd.insert(0, 'fakeroot')
+            virt = call(cmd)
+            if virt == 0:
+                return False
+            if virt == 10:
+                return True
+            raise Exception('Error checking virtualization status')
+        return sub_check('is_virtual')
 
     def refresh(self, widget=None, data=None):
         '''
@@ -290,7 +313,7 @@ class VirtualizedWarning(gtk.HBox):
         icon = gtk.Image()
         icon.set_from_stock(gtk.STOCK_DIALOG_WARNING, gtk.ICON_SIZE_DIALOG)
         self.pack_start(icon, False)
-        self.pack_start(WrappedLabel(text), False)
+        self.pack_start(gtk.Label(text), True)
 
 
 class AbsentWidget(gtk.VBox):
@@ -312,12 +335,6 @@ class AbsentWidget(gtk.VBox):
             label = WrappedLabel(_("Persistence is not available, but you can create it. Fill the form and click on 'Create persistence'."))
             self.options_form.button.connect('clicked', self.make_persistence)
             self.add(label)
-            if self.is_virtualized():
-                infobar = gtk.InfoBar()
-                infobar.set_message_type(gtk.MESSAGE_WARNING)
-                infobar.get_content_area().add(VirtualizedWarning())
-                self.pack_start(infobar, False)
-
             self.add(self.options_form)
             self.add(self.progress_label)
             self.add(self.progress_bar)
@@ -381,21 +398,6 @@ class AbsentWidget(gtk.VBox):
         msg.run()
         msg.destroy()
 
-    def is_virtualized(self):
-        '''
-        Check if freepto is running on a virtualized system.
-        '''
-        def sub_check(subcmd):
-            cmd = ['check-virt', subcmd]
-            if os.getuid() != 0:
-                cmd.insert(0, 'fakeroot')
-            virt = call(cmd)
-            if virt == 0:
-                return False
-            if virt == 10:
-                return True
-            raise Exception('Error checking virtualization status')
-        return sub_check('is_virtual')
 
 #}}}
 
