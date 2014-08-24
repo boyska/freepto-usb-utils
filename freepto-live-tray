@@ -169,9 +169,11 @@ class PersistenceOptionsForm(gtk.Frame):
 
         self.passphrase_label = WrappedLabel(_("Passphrase"))
         self.passphrase_input = gtk.Entry()
+        self.passphrase_input.set_visibility(False)
 
         self.repeat_passphrase_label = WrappedLabel(_("Repeat passphrase"))
         self.repeat_passphrase_input = gtk.Entry()
+        self.repeat_passphrase_input.set_visibility(False)
 
         self.fill_random_label = WrappedLabel(_("Fill with random data"))
         self.fill_random_input = gtk.CheckButton()
