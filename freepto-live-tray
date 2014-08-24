@@ -170,21 +170,33 @@ class PersistenceHelper(gtk.Window):
         available = _('No') if self.icon.status == 'ABSENT' else _('Yes')
         mount= _('Yes') if self.icon.status == 'MOUNT' else _('No')
 
-        table = gtk.Table(3, 2)
+        xpadding = 4
+        ypadding = 4
+
+        table = gtk.Table(3, 2, False)
         table.set_col_spacings(8)
-        table.attach(WrappedLabel(_('Freepto device:')), 0, 1, 0, 1)
-        table.attach(WrappedLabel(device), 1, 2, 0, 1)
+        table.attach(WrappedLabel(_('Freepto device:')), 0, 1, 0, 1, \
+                        xpadding=xpadding, ypadding=ypadding)
+        table.attach(WrappedLabel(device), 1, 2, 0, 1, \
+                        xpadding=xpadding, ypadding=ypadding)
 
-        table.attach(WrappedLabel(_('Persistence available:')), 0, 1, 1, 2)
-        table.attach(WrappedLabel(available), 1, 2, 1, 2)
+        table.attach(WrappedLabel(_('Persistence available:')), 0, 1, 1, 2, \
+                        xpadding=xpadding, ypadding=ypadding)
+        table.attach(WrappedLabel(available), 1, 2, 1, 2, \
+                        xpadding=xpadding, ypadding=ypadding)
 
-        table.attach(WrappedLabel(_('Persistence mount:')), 0, 1, 2, 3)
-        table.attach(WrappedLabel(mount), 1, 2, 2, 3)
+        table.attach(WrappedLabel(_('Persistence mount:')), 0, 1, 2, 3, \
+                        xpadding=xpadding, ypadding=ypadding)
+        table.attach(WrappedLabel(mount), 1, 2, 2, 3, \
+                        xpadding=xpadding, ypadding=ypadding)
         
         frame = gtk.Frame(_('Device info'))
         frame.add(table)
 
-        return frame
+        box = gtk.VBox(False, 0)
+        box.pack_start(frame, False)
+
+        return box
 
 #}}}
 
