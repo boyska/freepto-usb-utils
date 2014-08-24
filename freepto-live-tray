@@ -114,7 +114,7 @@ class PersistenceHelper(gtk.Window):
 
         return file_menu
 
-    def get_help_menu(Self):
+    def get_help_menu(self):
         '''
         Returns the "Help" menu
         '''
@@ -122,11 +122,22 @@ class PersistenceHelper(gtk.Window):
         help_submenu = gtk.Menu()
 
         about = gtk.ImageMenuItem(gtk.STOCK_ABOUT, _('About'))
+        about.connect('activate', self.show_about_dialog)
 
         help_menu.set_submenu(help_submenu)
         help_submenu.append(about)
  
         return help_menu
+
+    def show_about_dialog(self, widget, data=None):
+        dialog = gtk.AboutDialog()
+        dialog.set_name('Persistence helper')
+        dialog.set_website('https://github.com/AvANa-BBS/freepto-usb-utils')
+        dialog.set_comments(_('Persistence helper is a graphical tool to create the encrypted persistence partition for Freepto'))
+        dialog.set_authors(['Freepto'])
+        dialog.set_version('1.0')
+        dialog.run()
+        dialog.destroy()
 
     def get_info_widget(self):
         '''
