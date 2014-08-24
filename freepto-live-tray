@@ -437,7 +437,7 @@ class LiveWidget(gtk.VBox):
 
         label = WrappedLabel(_("Persistence available but Freepto is not using it. You must reboot the system to use persistence."))
         button = gtk.Button(_('Reboot the system'))
-        button.connect('activate', self.reboot)
+        button.connect('clicked', self.reboot_system)
 
         box = gtk.HBox(False, 6)
         box.pack_start(icon, False)
@@ -449,8 +449,8 @@ class LiveWidget(gtk.VBox):
         self.add(vbox)
         self.show_all()
 
-    def reboot(self):
-        call(['sudo', 'reboot'])
+    def reboot_system(self, widget=None, data=None):
+        call(['gksu', 'reboot'])
 #}}}
 
 
