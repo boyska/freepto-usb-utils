@@ -450,7 +450,7 @@ class LiveWidget(gtk.VBox):
         self.show_all()
 
     def reboot_system(self, widget=None, data=None):
-        call(['gksu', 'reboot'])
+        call(['gksudo', 'reboot'])
 #}}}
 
 
