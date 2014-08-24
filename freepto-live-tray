@@ -72,7 +72,7 @@ class PersistenceHelper(gtk.Window):
 
         main_box.pack_start(menu_bar, False)
         main_box.pack_start(self.warning_box, False)
-        main_box.pack_start(cols_box, False)
+        main_box.pack_start(cols_box, False, padding=8)
 
         self.refresh()
 
@@ -357,11 +357,7 @@ class AbsentWidget(HelperWidget):
             hbox.pack_start(label, False)
             self.add(hbox)
             self.add(self.options_form)
-            self.add(self.progress_label)
-            self.add(self.progress_bar)
             self.show_all()
-            self.progress_bar.hide()
-            self.progress_label.hide()
         else:
             label = WrappedLabel(_("Disk not found"))
 
@@ -372,6 +368,9 @@ class AbsentWidget(HelperWidget):
         '''
         if not self.options_form.validate():
             return
+
+        self.add(self.progress_label)
+        self.add(self.progress_bar)
 
         self.options_form.set_sensitive(False)
         self.progress_bar.set_fraction(0.5)
