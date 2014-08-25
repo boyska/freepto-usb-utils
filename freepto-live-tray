@@ -81,6 +81,7 @@ class CreatePersistenceWindow(gtk.Window):
     def __init__(self):
         gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
         self.set_title(_('Creating persistence'))
+        self.process_end = False
 
         self.infobar = PersistenceInfoBar()
         self.progress_bar = gtk.ProgressBar()
@@ -104,6 +105,11 @@ class CreatePersistenceWindow(gtk.Window):
         box.pack_start(self.progress_bar)
         box.pack_start(term_box)
 
+        self.connect('delete_event', self.on_delete_event)
+
+    def on_delete_event(self, widget, data=None):
+        return not self.process_end
+
     def fork_command(self, command):
         self.progress_bar.set_fraction(0.3)
         self.progress_bar.set_text("Creating persistence...")
@@ -125,6 +131,7 @@ class CreatePersistenceWindow(gtk.Window):
             self.infobar.set_error(ret_code)
             self.progress_bar.set_text(_('Error'))
             self.infobar.set_message_type(gtk.MESSAGE_ERROR)
+        self.process_end = True
 
 #}}}
 
