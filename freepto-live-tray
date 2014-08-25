@@ -42,6 +42,77 @@ class WrappedLabel(gtk.Label):
 #}}}
 
 
+#{{{ Create persistence window
+
+class CreatePersistenceWindow(gtk.Window):
+    '''
+    Just a scrolled terminal
+    '''
+
+    def __init__(self):
+        gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+        self.set_title(_('Creating persistence'))
+
+        self.progress_bar = gtk.ProgressBar()
+        self.progress_label = WrappedLabel()
+
+        self.term = vte.Terminal()
+        self.term.set_emulation('xterm')
+
+        scrollbar = gtk.VScrollbar()
+        scrollbar.set_adjustment(self.term.get_adjustment())
+
+        term_box = gtk.HBox()
+        term_box.pack_start(self.term)
+        term_box.pack_start(scrollbar)
+        self.term.connect('child-exited',
+                 lambda term: self.post_persistence)
+
+        box = gtk.VBox(False, 0)
+        self.add(box)
+
+        box.add(self.progress_label)
+        box.add(self.progress_bar)
+        box.add(term_box)
+
+    def fork_command(self, command):
+        self.progress_bar.set_fraction(0.5)
+        self.progress_bar.set_text("Creating persistence...")
+        self.progress_bar.show()
+        self.term.fork_command(command[0], command)
+
+    def post_persistence(self, ret_code):
+        '''
+        Exectued when make persistence is done.
+        '''
+        print "POST PERSISTENCE"
+        ret_code = self.term.get_child_exit_status()
+
+        if ret_code == 0:
+            print "POST PERSISTENCE 0"
+            self.progress_bar.set_fraction(1)
+            self.progress_bar.set_text(_('Completed'))
+            info = _('Persistence created! You must reboot the system to use it.')
+            self.progress_label.set_markup(info)
+            msg = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
+                                    buttons=gtk.BUTTONS_OK,
+                                    type=gtk.MESSAGE_INFO,
+                                    message_format=info)
+        else:
+            print "POST PERSISTENCE else"
+            info = _('Errors in persistence creation.\n\nCode: %s' % ret)
+            self.progress_label.set_markup(info)
+            msg = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
+                                    buttons=gtk.BUTTONS_OK,
+                                    type=gtk.MESSAGE_ERROR,
+                                    message_format=info)
+        self.progress_label.show()
+        msg.run()
+        msg.destroy()
+
+#}}}
+
+
 #{{{ Persistence helper window
 
 class PersistenceHelper(gtk.Window):
@@ -98,22 +169,22 @@ class PersistenceHelper(gtk.Window):
         '''
         self.icon.refresh()
 
+        for child in self.warning_box.get_children():
+            self.warning_box.remove(child)
+
         if self.is_virtualized() and self.icon.status == 'ABSENT':
             infobar = gtk.InfoBar()
             infobar.set_message_type(gtk.MESSAGE_WARNING)
             infobar.get_content_area().add(VirtualizedWarning())
             infobar.show_all()
             self.warning_box.pack_start(infobar, True)
-        else:
-            for child in self.warning_box.get_children():
-                self.warning_box.remove(child)
 
         # Removing children
         for child in self.helper_box.get_children():
             self.helper_box.remove(child)
 
         if self.icon.status == 'ABSENT':
-            self.helper_box.add(AbsentWidget(self.icon))
+            self.helper_box.add(AbsentWidget(self.icon, self))
         elif self.icon.status == 'LIVE':
             self.helper_box.add(LiveWidget())
         else:
@@ -199,6 +270,7 @@ class PersistenceHelper(gtk.Window):
         return box
 
 #}}}
+
 
 class HelperWidget(gtk.VBox):
 
@@ -290,34 +362,6 @@ class PersistenceOptionsForm(gtk.Frame):
             return True
 
 
-class PersistenceTerminal(gtk.Frame):
-    '''
-    Just a scrolled terminal
-    '''
-
-    def __init__(self):
-        gtk.Frame.__init__(self, _('Make persistence details'))
-
-        self.term = vte.Terminal()
-        self.term.set_emulation('xterm')
-
-        scrollbar = gtk.VScrollbar()
-        scrollbar.set_adjustment(self.term.get_adjustment())
-
-        term_box = gtk.HBox()
-        term_box.pack_start(self.term)
-        term_box.pack_start(scrollbar)
-
-        self.add(term_box)
-
-    def fork_command(self, command):
-        self.term.fork_command(command[0], command)
-
-    def set_post_persistence(self, post_persistence):
-        code = self.term.get_child_exit_status()
-        self.term.connect('child-exited',
-                 lambda term: post_persistence(code))
-
 
 class VirtualizedWarning(gtk.HBox):
 
@@ -331,20 +375,19 @@ class VirtualizedWarning(gtk.HBox):
         self.pack_start(gtk.Label(text), True)
 
 
+
 class AbsentWidget(HelperWidget):
     '''
     This widget is displayed when persistence is Absent and contains all stuff
     needed to create a new persistence.
     '''
 
-    def __init__(self, icon):
+    def __init__(self, icon, main_window):
         HelperWidget.__init__(self)
         self.icon = icon
+        self.main_window = main_window
         
         self.options_form = PersistenceOptionsForm()
-        self.progress_bar = gtk.ProgressBar()
-        self.progress_label = WrappedLabel()
-
         # Check the Freepto device
         if get_root_device() is not None:
             image = gtk.Image()
@@ -364,61 +407,26 @@ class AbsentWidget(HelperWidget):
 
     def make_persistence(self, widget, data=None):
         '''
-        Create the persistence
+        Run the create persistence window
         '''
         if not self.options_form.validate():
             return
 
-        self.add(self.progress_label)
-        self.add(self.progress_bar)
-
         self.options_form.set_sensitive(False)
-        self.progress_bar.set_fraction(0.5)
-        self.progress_bar.set_text("Creating persistence...")
-        self.progress_bar.show()
-
         passphrase = self.options_form.passphrase_input.get_text()
         fill_random = self.options_form.fill_random_input.get_active()
+
         command = ["makepersistence", "-p", passphrase, "%s2" % get_root_device()]
         if not fill_random:
             command.insert(1, "-r")
         if os.getuid() != 0:
             command = ["su-to-root", "-X", "-c", " ".join(command)]
 
-        term = PersistenceTerminal()
-        term.set_post_persistence(self.post_persistence)
-        term.fork_command(command)
-
-        self.add(term)
-        self.show_all()
-
-    def post_persistence(self, ret_code):
-        '''
-        Exectued when make persistence is done.
-        '''
-        self.icon.refresh()
-
-        if ret_code == 0:
-            self.progress_bar.set_fraction(1)
-            self.progress_bar.set_text(_('Completed'))
-            info = _('Persistence created! You must reboot the system to use it.')
-            self.progress_label.set_markup(info)
-            msg = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
-                                    buttons=gtk.BUTTONS_OK,
-                                    type=gtk.MESSAGE_INFO,
-                                    message_format=info)
-        else:
-            info = _('Errors in persistence creation.\n\nCode: %s' % ret)
-            self.progress_label.set_markup(info)
-            msg = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
-                                    buttons=gtk.BUTTONS_OK,
-                                    type=gtk.MESSAGE_ERROR,
-                                    message_format=info)
-        self.progress_label.show()
-        msg.run()
-        msg.destroy()
-
-
+        create_persistence = CreatePersistenceWindow()
+        create_persistence.fork_command(command)
+        create_persistence.connect('destroy', self.main_window.refresh)
+        create_persistence.show_all()
+        
 #}}}
 
 
