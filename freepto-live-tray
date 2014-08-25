@@ -44,6 +44,35 @@ class WrappedLabel(gtk.Label):
 
 #{{{ Create persistence window
 
+class PersistenceInfoBar(gtk.InfoBar):
+
+    def __init__(self):
+        gtk.InfoBar.__init__(self)
+
+        self.set_message_type(gtk.MESSAGE_WARNING)
+        self.icon = gtk.Image()
+        self.icon.set_from_stock(gtk.STOCK_DIALOG_WARNING, gtk.ICON_SIZE_DIALOG)
+        self.label = gtk.Label(_('Persistence is under creation. You must wait ' +
+                                'until the process ends.'))
+        box = gtk.HBox(False, 6)
+        box.pack_start(self.icon, False)
+        box.pack_start(self.label, True)
+        self.get_content_area().add(box)
+
+    def set_error(self, ret_code):
+        text = _('Errors in persistence creation.\n\nCode: %s' % ret_code)
+        self.label.set_markup(text)
+        self.set_message_type(gtk.MESSAGE_ERROR)
+        self.icon.set_from_stock(gtk.STOCK_DIALOG_ERROR, gtk.ICON_SIZE_DIALOG)
+
+    def set_success(self):
+        text = _('Persistence created! You must reboot the system to use ' +
+                    'it.')
+        self.label.set_markup(text)
+        self.set_message_type(gtk.MESSAGE_INFO)
+        self.icon.set_from_stock(gtk.STOCK_DIALOG_INFO, gtk.ICON_SIZE_DIALOG)
+
+
 class CreatePersistenceWindow(gtk.Window):
     '''
     Just a scrolled terminal
@@ -53,11 +82,12 @@ class CreatePersistenceWindow(gtk.Window):
         gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
         self.set_title(_('Creating persistence'))
 
+        self.infobar = PersistenceInfoBar()
         self.progress_bar = gtk.ProgressBar()
-        self.progress_label = WrappedLabel()
 
         self.term = vte.Terminal()
         self.term.set_emulation('xterm')
+        self.term.set_scrollback_lines(-1)
 
         scrollbar = gtk.VScrollbar()
         scrollbar.set_adjustment(self.term.get_adjustment())
@@ -65,50 +95,36 @@ class CreatePersistenceWindow(gtk.Window):
         term_box = gtk.HBox()
         term_box.pack_start(self.term)
         term_box.pack_start(scrollbar)
-        self.term.connect('child-exited',
-                 lambda term: self.post_persistence)
+        self.term.connect('child-exited', self.post_persistence)
 
-        box = gtk.VBox(False, 0)
+        box = gtk.VBox(False, 10)
         self.add(box)
 
-        box.add(self.progress_label)
-        box.add(self.progress_bar)
-        box.add(term_box)
+        box.pack_start(self.infobar)
+        box.pack_start(self.progress_bar)
+        box.pack_start(term_box)
 
     def fork_command(self, command):
-        self.progress_bar.set_fraction(0.5)
+        self.progress_bar.set_fraction(0.3)
         self.progress_bar.set_text("Creating persistence...")
         self.progress_bar.show()
         self.term.fork_command(command[0], command)
 
-    def post_persistence(self, ret_code):
+    def post_persistence(self, widget=None, data=None):
         '''
         Exectued when make persistence is done.
         '''
-        print "POST PERSISTENCE"
         ret_code = self.term.get_child_exit_status()
 
         if ret_code == 0:
-            print "POST PERSISTENCE 0"
+            self.infobar.set_success()
             self.progress_bar.set_fraction(1)
             self.progress_bar.set_text(_('Completed'))
-            info = _('Persistence created! You must reboot the system to use it.')
-            self.progress_label.set_markup(info)
-            msg = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
-                                    buttons=gtk.BUTTONS_OK,
-                                    type=gtk.MESSAGE_INFO,
-                                    message_format=info)
+            self.infobar.set_message_type(gtk.MESSAGE_INFO)
         else:
-            print "POST PERSISTENCE else"
-            info = _('Errors in persistence creation.\n\nCode: %s' % ret)
-            self.progress_label.set_markup(info)
-            msg = gtk.MessageDialog(None, flags=gtk.DIALOG_MODAL,
-                                    buttons=gtk.BUTTONS_OK,
-                                    type=gtk.MESSAGE_ERROR,
-                                    message_format=info)
-        self.progress_label.show()
-        msg.run()
-        msg.destroy()
+            self.infobar.set_error(ret_code)
+            self.progress_bar.set_text(_('Error'))
+            self.infobar.set_message_type(gtk.MESSAGE_ERROR)
 
 #}}}
 
